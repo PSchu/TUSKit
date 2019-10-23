@@ -8,6 +8,10 @@
 #import "TUSSession.h"
 #import "TUSResumableUpload+Private.h"
 
+#define HTTP_PATCH @"PATCH"
+#define HTTP_POST @"POST"
+#define HTTP_HEAD @"HEAD"
+
 @interface TUSSession() <TUSResumableUploadDelegate, NSURLSessionDataDelegate>
 
 @property (nonatomic, strong) NSURLSession *session; // Session to use for uploads
@@ -240,6 +244,16 @@
 -(void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didSendBodyData:(int64_t)bytesSent totalBytesSent:(int64_t)totalBytesSent totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend{
     // Unfortunately we need to use this delegate method to report progress back to the task for it to report it to its callback methods
     [self.tasks[task] task:task didSendBodyData:bytesSent totalBytesSent:totalBytesSent totalBytesExpectedToSend:totalBytesExpectedToSend];
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    if ([task.originalRequest.HTTPMethod isEqualToString:HTTP_POST]) {
+        [self.tasks[task] finishedCreatingFileWithResponse:task.response withError:error];
+    } else if ([task.originalRequest.HTTPMethod isEqualToString:HTTP_HEAD]) {
+        [self.tasks[task] finishedCheckingFileWithResponse:task.response withError:error];
+    } else if ([task.originalRequest.HTTPMethod isEqualToString:HTTP_PATCH]) {
+        [self.tasks[task] finishedUploadingWithResponse:task.response withError:error];
+    }
 }
 
 @end
