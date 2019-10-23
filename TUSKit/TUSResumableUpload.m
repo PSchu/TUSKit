@@ -138,7 +138,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
                          delegate:delegate
                     uploadHeaders:headers
                     finalMetadata:uploadMetadata
-                            state:TUSResumableUploadStateUploadingFile
+                            state:TUSResumableUploadStateCheckingFile
                         uploadUrl:uploadUrl];
 
 }
