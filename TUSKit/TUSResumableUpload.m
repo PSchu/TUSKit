@@ -405,9 +405,6 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     }
     self.idle = YES;
     [self.delegate saveUpload:self]; // Save current state for reloading - only save when we get a call back, not at the start of one (because this is the only time the state changes)
-    #if defined TARGET_OS_OSX
-        [self cancel];
-    #endif
 
     if (delayTime > 0) {
         __weak NSOperationQueue *weakQueue = [NSOperationQueue currentQueue];
@@ -503,9 +500,6 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     }
     self.idle = YES;
     [self.delegate saveUpload:self]; // Save current state for reloading - only save when we get a call back, not at the start of one (because this is the only time the state changes)
-    #if defined TARGET_OS_OSX
-        [self cancel];
-    #endif
     if (delayTime > 0) {
         __weak NSOperationQueue *weakQueue = [NSOperationQueue currentQueue];
         // Delay some time before we try again.  We use a weak queue pointer because if the queue goes away, presumably the session has too (the session should have a strong pointer to the queue).
@@ -593,9 +587,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     }
     self.idle = YES;
     [self.delegate saveUpload:self]; // Save current state for reloading - only save when we get a call back, not at the start of one (because this is the only time the state changes)
-    #if defined TARGET_OS_OSX
-        [self cancel];
-    #endif
+
     [self continueUpload];
 }
 
