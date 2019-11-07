@@ -155,14 +155,14 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
         NSLog(@"URL provided to TUSResumableUpload is not a file URL: %@", fileUrl);
         return nil;
     }
-    
+
     // Set up metadata with filename
     NSMutableDictionary *uploadMetadata = [NSMutableDictionary new];
     uploadMetadata[@"filename"] = fileUrl.filePathURL.lastPathComponent;
     if (metadata){
         [uploadMetadata addEntriesFromDictionary:metadata];
     }
-    
+
     return [self initWithUploadId:uploadId
                              file:fileUrl
                             retry:retryCount
@@ -171,7 +171,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
                     finalMetadata:uploadMetadata
                             state:TUSResumableUploadStateCreatingFile
                         uploadUrl:nil];
-    
+
 }
 
 
@@ -201,7 +201,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
         _chunkSize = -1;
         _retryCount = retryCount;
         _attempts = 0;
-        
+
         if (_state != TUSResumableUploadStateComplete){
             _data = [[TUSFileData alloc] initWithFileURL:fileUrl];
             if (!_data){
@@ -292,17 +292,17 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
 {
     self.state = TUSResumableUploadStateCreatingFile;
     self.offset = 0; // Reset the offset to zero if we're creating a new file.
-    
+
     long long size = self.data.length;
-    
+
     NSMutableDictionary *mutableHeader = [NSMutableDictionary dictionary];
-    
+
     // Upload-Metadata is a custom formatted string
     NSMutableArray <NSString *> *formattedMetadata = [NSMutableArray new];
     for (NSString *entry in self.metadata) {
         NSMutableString *formattedEntry = [[NSMutableString alloc] initWithString:entry];
         [formattedEntry appendString:@" "];
-        
+
         NSData *plainData = [self.metadata[entry] dataUsingEncoding:NSUTF8StringEncoding];
         NSString *base64String = [plainData base64EncodedStringWithOptions:0];
         [formattedEntry appendString:base64String];
@@ -310,14 +310,14 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     }
     NSString* stripColon = [[formattedMetadata componentsJoinedByString:@","] stringByReplacingOccurrencesOfString:@":" withString:@""];
     [mutableHeader setObject:stripColon forKey:@"Upload-Metadata"];
-    
+
     // Add custom headers after the filename, as the upload-metadata may be customized
     [mutableHeader addEntriesFromDictionary:[self uploadHeaders]];
-    
+
     // Set the version & length last as they are determined by the uploader
     [mutableHeader setObject:[NSString stringWithFormat:@"%lld", size] forKey:HTTP_UPLOAD_LENGTH];
     [mutableHeader setObject:HTTP_TUS_VERSION forKey:HTTP_TUS];
-    
+
     NSURL *createUploadURL = self.delegate.createUploadURL;
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:createUploadURL
                                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
@@ -422,15 +422,15 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
 - (BOOL) checkFile
 {
     self.state = TUSResumableUploadStateCheckingFile;
-    
+
     NSMutableDictionary *mutableHeader = [NSMutableDictionary dictionary];
     [mutableHeader addEntriesFromDictionary:[self uploadHeaders]];
     [mutableHeader setObject:HTTP_TUS_VERSION forKey:HTTP_TUS];
-    
+
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:self.uploadUrl
                                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                             timeoutInterval:REQUEST_TIMEOUT];
-    
+
     [request setHTTPMethod:HTTP_HEAD];
     [request setHTTPShouldHandleCookies:NO];
     [request setAllHTTPHeaderFields:mutableHeader];
@@ -478,7 +478,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
         // We only check 423 errors in checkFile because the other methods will properly handle locks with their generic error handling.
         TUSLog(@"File is locked, waiting and retrying");
         delayTime = DELAY_TIME; // Delay to wait for locks.
-    } else if (httpResponse.statusCode >= 500 && httpResponse.statusCode < 600) {
+    } else if (httpResponse.statusCode < 200 || httpResponse.statusCode >= 400) {
         TUSLog(@"Server error, stopping");
         [self stop]; // Will prevent continueUpload from doing anything
         // Make the callback after the current operation so that the rest of the method will finish.
@@ -490,10 +490,6 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
                 block([[NSError alloc] initWithDomain:TUSErrorDomain code:TUSResumableUploadErrorServer userInfo:@{@"responseCode": @(statusCode)}]);
             }];
         }
-    } else if (httpResponse.statusCode < 200 || httpResponse.statusCode > 204){
-        TUSLog(@"Server responded to file check with %ld. Creating file",
-               (long)httpResponse.statusCode);
-        self.state = TUSResumableUploadStateCreatingFile;
     } else {
         // Got a valid status code, so update state and continue upload.
         [self updateStateFromHeaders:httpResponse.allHeaderFields];
@@ -516,7 +512,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
 -(BOOL)uploadFile
 {
     self.state = TUSResumableUploadStateUploadingFile;
-    
+
     NSMutableDictionary *mutableHeader = [NSMutableDictionary dictionary];
     [mutableHeader addEntriesFromDictionary:[self uploadHeaders]];
     [mutableHeader setObject:[NSString stringWithFormat:@"%lld", self.offset] forKey:HTTP_OFFSET];
@@ -525,16 +521,16 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
 
     TUSLog(@"Resuming upload to %@ with id %@ from offset %lld",
            self.uploadUrl, self.uploadId, self.offset);
-    
+
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:self.uploadUrl
                                                                 cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                             timeoutInterval:REQUEST_TIMEOUT];
     [request setHTTPMethod:HTTP_PATCH];
     [request setHTTPShouldHandleCookies:NO];
     [request setAllHTTPHeaderFields:mutableHeader];
-    
+
     [self.data setOffset:self.offset]; // Advance the offset of data to the expected value
-    
+
     //If we are using chunked sizes, set the chunkSize and retrieve the data
     //with the offset and size of self.chunkSize
     if (self.chunkSize > 0) {
@@ -630,7 +626,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
 
 -(NSDictionary *) serialize
 {
-    
+
     NSObject *fileUrlData = [NSNull null];
     if (self.fileUrl){
         NSError *error;
@@ -641,7 +637,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
             fileUrlData = bookmarkData;
         }
     }
-    
+
     return @{STORE_KEY_ID: self.uploadId,
              STORE_KEY_DELEGATE_ENDPOINT: self.delegate.createUploadURL.absoluteString,
              STORE_KEY_UPLOAD_URL:  self.state == TUSResumableUploadStateCreatingFile? @"": self.uploadUrl.absoluteString, //If we are creating the file, there is no upload URL
@@ -651,7 +647,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
              STORE_KEY_UPLOAD_HEADERS: self.uploadHeaders,
              STORE_KEY_FILE_URL: fileUrlData,
              STORE_KEY_RETRY_COUNT: @(self.retryCount)};
-    
+
 }
 
 -(instancetype)initWithDictionary:(NSDictionary *)serializedUpload delegate:(id<TUSResumableUploadDelegate>)delegate
@@ -660,7 +656,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     if (serializedUpload == nil) {
         return nil;
     }
-    
+
     // Get parameters
     NSString *uploadId = serializedUpload[STORE_KEY_ID];
     NSNumber *expectedLength = serializedUpload[STORE_KEY_LENGTH];
@@ -669,13 +665,13 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     NSDictionary *metadata = serializedUpload[STORE_KEY_METADATA];
     NSDictionary *headers = serializedUpload[STORE_KEY_UPLOAD_HEADERS];
     NSDictionary *uploadUrl = [NSURL URLWithString:serializedUpload[STORE_KEY_UPLOAD_URL]];
-    
+
     NSURL * savedDelegateEndpoint = [NSURL URLWithString:serializedUpload[STORE_KEY_DELEGATE_ENDPOINT]];
     if (![savedDelegateEndpoint.absoluteString isEqualToString:delegate.createUploadURL.absoluteString]){ // Check saved delegate endpoint
         NSLog(@"Delegate URL in stored dictionary for %@ (%@) does not match the one in the passed-in delegate %@", uploadId, savedDelegateEndpoint, delegate.createUploadURL);
         return nil;
     }
-    
+
     NSURL *fileUrl = nil;
     if(serializedUpload[STORE_KEY_FILE_URL] != [NSNull null]){
         NSError *error;
@@ -691,7 +687,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
             NSLog(@"Error loading size of file saved at %@ when restoring upload %@", fileUrl, uploadId);
             return nil;
         }
-        
+
         if (fileSize.unsignedLongLongValue != expectedLength.unsignedLongLongValue){
             NSLog(@"Expected file size (%ulld) for saved upload %@ does not match actual file size (%ulld)", fileSize.unsignedLongLongValue, uploadId, expectedLength.unsignedLongLongValue);
             return nil;
@@ -701,18 +697,18 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
         //TODO: Implement code to resume a non-file-based upload
         return nil;
     }
-    
+
     NSNumber *retryCountNumber = serializedUpload[STORE_KEY_RETRY_COUNT];
     int retryCount = -1;
     if (retryCountNumber != nil) {
         retryCount = retryCountNumber.intValue;
     }
-    
+
     // If the upload was previously uploading, we need to do a check before we can continue.
     if (state == TUSResumableUploadStateUploadingFile){
         state = TUSResumableUploadStateCheckingFile;
     }
-    
+
     return [self initWithUploadId:uploadId
                              file:fileUrl
                             retry:retryCount
@@ -721,6 +717,14 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
                     finalMetadata:metadata
                             state:state
                         uploadUrl:uploadUrl];
+}
+
+- (void) updateHeaders: (NSDictionary<NSString *, NSObject *> * _Nonnull) headers {
+    NSMutableDictionary *newHeaders = [self.uploadHeaders mutableCopy];
+    for (NSString *key in [headers allKeys]) {
+        newHeaders[key] = headers[key];
+    }
+    self.uploadHeaders = newHeaders;
 }
 
 @end
