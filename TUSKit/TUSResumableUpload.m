@@ -534,13 +534,15 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     //If we are using chunked sizes, set the chunkSize and retrieve the data
     //with the offset and size of self.chunkSize
     if (self.chunkSize > 0) {
-        request.HTTPBody = [self.data dataChunk:self.chunkSize];
-        TUSLog(@"Uploading chunk sized %lu / %lld ", request.HTTPBody.length, self.chunkSize);
+        NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:@"throwaway"];
+        [[self.data dataChunk:self.chunkSize] writeToURL:tempDir atomically:YES];
+
+        self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
     } else {
         request.HTTPBodyStream = self.data.dataStream;
+        self.currentTask = [self.delegate.session dataTaskWithRequest:request];
     }
 
-    self.currentTask = [self.delegate.session dataTaskWithRequest:request];
     [self.delegate addTask:self.currentTask forUpload:self];
     self.idle = NO;
     [self.currentTask resume]; // Now everything done on currentTask will be done in the callbacks.
