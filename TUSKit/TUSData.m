@@ -112,6 +112,10 @@
     return [_data subdataWithRange:NSMakeRange(offset, chunkSize)];
 }
 
+- (NSData*)remainingDataFromOffset: (NSUInteger)offset{
+    return [_data subdataWithRange:NSMakeRange(offset, _data.length)];
+}
+
 #pragma mark - NSStreamDelegate Protocol Methods
 - (void)stream:(NSStream *)aStream
    handleEvent:(NSStreamEvent)eventCode

@@ -104,4 +104,10 @@
     NSData *chunkData = [self.fileHandle readDataOfLength:chunkSize];
     return chunkData;
 }
+
+- (NSData*)remainingDataFromOffset: (NSUInteger)offset {
+    [self.fileHandle seekToFileOffset:offset];
+    NSData *chunkData = [self.fileHandle readDataToEndOfFile];
+    return chunkData;
+}
 @end

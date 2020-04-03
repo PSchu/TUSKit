@@ -534,16 +534,24 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
     //If we are using chunked sizes, set the chunkSize and retrieve the data
     //with the offset and size of self.chunkSize
     if (self.chunkSize > 0) {
-        NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:@"throwaway"];
+        NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:self.fileUrl.filePathURL.lastPathComponent];
         [[self.data dataChunk:self.chunkSize] writeToURL:tempDir atomically:YES];
-
+        
         self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
+    } else if (self.offset > 0) {
+        NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:self.fileUrl.filePathURL.lastPathComponent];
+        NSError* error;
+        if ([[self.data remainingDataFromOffset:self.offset] writeToURL:tempDir atomically:YES]) {
+            self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
+        } else {
+            NSLog(@"something went wrong, %@", error);
+            [mutableHeader setObject:[NSString stringWithFormat:@"%d", 0] forKey:HTTP_OFFSET];
+            self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:self.fileUrl];
+        }
     } else {
-        NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:@"throwaway"];
-        [self.data.data writeToURL:tempDir atomically:YES];
-        self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
+        self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:self.fileUrl];
     }
-
+    
     [self.delegate addTask:self.currentTask forUpload:self];
     self.idle = NO;
     [self.currentTask resume]; // Now everything done on currentTask will be done in the callbacks.

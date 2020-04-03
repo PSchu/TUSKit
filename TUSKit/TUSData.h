@@ -33,4 +33,5 @@
 - (NSData*)dataChunk:(long long)chunkSize
           fromOffset: (NSUInteger)offset;
 
+- (NSData*)remainingDataFromOffset: (NSUInteger)offset;
 @end
