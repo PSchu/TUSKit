@@ -20,7 +20,6 @@
 @property (assign) long long offset;
 @property (strong, nonatomic) NSInputStream* inputStream;
 @property (strong, nonatomic) NSOutputStream* outputStream;
-@property (strong, nonatomic) NSData* data;
 @end
 
 @implementation TUSData

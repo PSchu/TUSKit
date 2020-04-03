@@ -18,6 +18,7 @@
 @property (readwrite,copy) void (^failureBlock)(NSError* error);
 @property (readwrite,copy) void (^successBlock)(void);
 @property (readonly) NSInputStream* dataStream;
+@property (strong, nonatomic) NSData* data;
 
 - (id)initWithData:(NSData*)data;
 

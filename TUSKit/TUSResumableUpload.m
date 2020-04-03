@@ -540,7 +540,7 @@ typedef void(^NSURLSessionTaskCompletionHandler)(NSData * _Nullable data, NSURLR
         self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
     } else {
         NSURL* tempDir = [[NSFileManager defaultManager].temporaryDirectory URLByAppendingPathComponent:@"throwaway"];
-        [self.data writeToURL:tempDir atomically:YES];
+        [self.data.data writeToURL:tempDir atomically:YES];
         self.currentTask = [self.delegate.session uploadTaskWithRequest:request fromFile:tempDir];
     }
 
